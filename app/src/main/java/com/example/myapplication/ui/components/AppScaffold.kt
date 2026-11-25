@@ -120,6 +120,17 @@ fun PierreFabreDrawer(
                 )
 
                 NavigationDrawerItem(
+                    icon = { Icon(Icons.Default.Bookmark, contentDescription = null) },
+                    label = { Text("Mes Favoris") },
+                    selected = currentRoute == "favorites",
+                    onClick = {
+                        scope.launch { drawerState.close() }
+                        onNavigate("favorites")
+                    },
+                    modifier = Modifier.padding(horizontal = 12.dp)
+                )
+
+                NavigationDrawerItem(
                     icon = { Icon(Icons.Default.AutoAwesome, contentDescription = null) },
                     label = { Text("Prédictions IA MAMMAL") },
                     selected = currentRoute == "mammal",

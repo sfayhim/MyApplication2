@@ -1,7 +1,7 @@
 package com.example.myapplication.data.repository
 
 import com.example.myapplication.data.api.CureCancerApiService
-import com.example.myapplication.data.api.RetrofitClient
+import com.example.myapplication.data.api.KtorClient
 import com.example.myapplication.data.model.BlogItem
 import com.example.myapplication.data.model.ClinicalTrial
 import com.example.myapplication.data.model.ClinToxRequest
@@ -15,14 +15,15 @@ import com.example.myapplication.data.model.PharmaSearchRequest
 import com.example.myapplication.data.model.PpiRequest
 import com.example.myapplication.data.model.PpiResponseData
 import com.example.myapplication.data.model.ResearchPaper
-import com.google.gson.Gson
-import com.google.gson.JsonArray
-import com.google.gson.JsonElement
-import com.google.gson.reflect.TypeToken
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonNull
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.decodeFromJsonElement
 import kotlin.math.round
 
 class OncologyRepository(
-    private val apiService: CureCancerApiService = RetrofitClient.apiService
+    private val apiService: CureCancerApiService = KtorClient.apiService
 ) {
 
     suspend fun getResearchPapers(): Result<List<ResearchPaper>> {
@@ -145,16 +146,13 @@ class OncologyRepository(
     }
 
     private fun extractJsonArray(element: JsonElement?): JsonArray? {
-        if (element == null || element.isJsonNull) return null
-        if (element.isJsonArray) return element.asJsonArray
-        if (element.isJsonObject) {
-            val obj = element.asJsonObject
-            if (obj.has("items") && obj.get("items").isJsonArray) {
-                return obj.getAsJsonArray("items")
-            }
-            if (obj.has("data") && obj.get("data").isJsonArray) {
-                return obj.getAsJsonArray("data")
-            }
+        if (element == null || element is JsonNull) return null
+        if (element is JsonArray) return element
+        if (element is JsonObject) {
+            val items = element["items"]
+            if (items is JsonArray) return items
+            val data = element["data"]
+            if (data is JsonArray) return data
         }
         return null
     }
@@ -198,36 +196,36 @@ class OncologyRepository(
         // 1. First, try API search using translated English term or original query
         try {
             val jsonObject = apiService.search(englishQuery, types)
-            val gson = Gson()
+            val json = KtorClient.json
 
-            val dataElement = jsonObject.get("data") ?: jsonObject
-            val obj = if (dataElement.isJsonObject) dataElement.asJsonObject else jsonObject
+            val dataElement = jsonObject["data"] ?: jsonObject
+            val obj = if (dataElement is JsonObject) dataElement else jsonObject
 
             val keys = listOf("research", "clinicalTrials", "fdaApprovals", "news", "blog")
             for (key in keys) {
-                if (obj.has(key)) {
-                    val array = extractJsonArray(obj.get(key))
+                if (key in obj) {
+                    val array = extractJsonArray(obj[key])
                     if (array != null) {
                         when (key) {
                             "research" -> {
-                                val list = gson.fromJson<List<ResearchPaper>>(array, object : TypeToken<List<ResearchPaper>>() {}.type)
-                                if (!list.isNullOrEmpty()) resultMap["research"] = list
+                                val list = json.decodeFromJsonElement<List<ResearchPaper>>(array)
+                                if (list.isNotEmpty()) resultMap["research"] = list
                             }
                             "clinicalTrials" -> {
-                                val list = gson.fromJson<List<ClinicalTrial>>(array, object : TypeToken<List<ClinicalTrial>>() {}.type)
-                                if (!list.isNullOrEmpty()) resultMap["clinicalTrials"] = list
+                                val list = json.decodeFromJsonElement<List<ClinicalTrial>>(array)
+                                if (list.isNotEmpty()) resultMap["clinicalTrials"] = list
                             }
                             "fdaApprovals" -> {
-                                val list = gson.fromJson<List<FdaApproval>>(array, object : TypeToken<List<FdaApproval>>() {}.type)
-                                if (!list.isNullOrEmpty()) resultMap["fdaApprovals"] = list
+                                val list = json.decodeFromJsonElement<List<FdaApproval>>(array)
+                                if (list.isNotEmpty()) resultMap["fdaApprovals"] = list
                             }
                             "news" -> {
-                                val list = gson.fromJson<List<NewsItem>>(array, object : TypeToken<List<NewsItem>>() {}.type)
-                                if (!list.isNullOrEmpty()) resultMap["news"] = list
+                                val list = json.decodeFromJsonElement<List<NewsItem>>(array)
+                                if (list.isNotEmpty()) resultMap["news"] = list
                             }
                             "blog" -> {
-                                val list = gson.fromJson<List<BlogItem>>(array, object : TypeToken<List<BlogItem>>() {}.type)
-                                if (!list.isNullOrEmpty()) resultMap["blog"] = list
+                                val list = json.decodeFromJsonElement<List<BlogItem>>(array)
+                                if (list.isNotEmpty()) resultMap["blog"] = list
                             }
                         }
                     }

@@ -8,11 +8,14 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Bookmark
+import androidx.compose.material.icons.filled.BookmarkBorder
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.OpenInBrowser
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -43,6 +46,7 @@ fun DetailScreen(
 
     Scaffold(
         topBar = {
+            val isFav by viewModel.isFavorite.collectAsState()
             TopAppBar(
                 title = { Text("Détails de l'élément", fontWeight = FontWeight.Bold) },
                 navigationIcon = {
@@ -51,6 +55,13 @@ fun DetailScreen(
                     }
                 },
                 actions = {
+                    IconButton(onClick = { viewModel.toggleFavorite() }) {
+                        Icon(
+                            imageVector = if (isFav) Icons.Default.Bookmark else Icons.Default.BookmarkBorder,
+                            contentDescription = if (isFav) "Retirer des favoris" else "Ajouter aux favoris",
+                            tint = if (isFav) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                        )
+                    }
                     IconButton(onClick = onOpenDrawer) {
                         Icon(Icons.Default.Menu, contentDescription = "Menu")
                     }
@@ -136,8 +147,8 @@ fun DetailScreen(
                                     DetailRow(label = "Date de publication", value = item.displayDate ?: "N/A")
                                     if (!item.abstractText.isNullOrEmpty()) {
                                         DetailSection(title = "Résumé / Abstract", content = item.abstractText)
-                                    } else if (!item.summary.isNullOrEmpty()) {
-                                        DetailSection(title = "Résumé", content = item.summary)
+                                    } else if (!item.displaySummary.isNullOrEmpty()) {
+                                        DetailSection(title = "Résumé", content = item.displaySummary!!)
                                     }
                                 }
                                 is ClinicalTrial -> {
@@ -187,8 +198,8 @@ fun DetailScreen(
                                 is BlogItem -> {
                                     DetailHeader(type = "Article / Blog", title = item.title)
                                     DetailRow(label = "Date", value = item.displayDate ?: "N/A")
-                                    if (!item.summary.isNullOrEmpty()) {
-                                        DetailSection(title = "Résumé", content = item.summary)
+                                    if (!item.displaySummary.isNullOrEmpty()) {
+                                        DetailSection(title = "Résumé", content = item.displaySummary!!)
                                     }
                                     if (!item.content.isNullOrEmpty()) {
                                         DetailSection(title = "Contenu", content = item.content)

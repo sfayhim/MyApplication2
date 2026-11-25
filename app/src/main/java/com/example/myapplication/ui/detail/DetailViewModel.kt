@@ -1,13 +1,22 @@
 package com.example.myapplication.ui.detail
 
+import android.app.Application
+import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.viewModelScope
+import com.example.myapplication.data.model.*
+import com.example.myapplication.data.repository.FavoriteRepository
+import com.example.myapplication.data.repository.OncologyRepository
+import com.example.myapplication.data.room.AppDatabase
+import com.example.myapplication.data.room.FavoriteEntity
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import androidx.lifecycle.ViewModel
-import androidx.lifecycle.viewModelScope
-import com.example.myapplication.data.model.*
-import com.example.myapplication.data.repository.OncologyRepository
-import kotlinx.coroutines.launch
 
 data class DetailUiState(
     val isLoading: Boolean = false,
@@ -17,17 +26,33 @@ data class DetailUiState(
     val errorMessage: String? = null
 )
 
-class DetailViewModel(
+class DetailViewModel(application: Application) : AndroidViewModel(application) {
+
     private val repository: OncologyRepository = OncologyRepository()
-) : ViewModel() {
+    private val favoriteRepository = FavoriteRepository(AppDatabase.getInstance(application))
 
     var uiState by mutableStateOf(DetailUiState())
         private set
 
+    // StateFlow pour l'état favori — notion Flow du cours
+    private val _currentId = kotlinx.coroutines.flow.MutableStateFlow("")
+
+    val isFavorite: StateFlow<Boolean> = _currentId
+        .flatMapLatest { id ->
+            if (id.isBlank()) flowOf(false)
+            else favoriteRepository.isFavorite(id)
+        }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = false
+        )
+
     fun loadDetail(itemType: String, itemId: String) {
+        _currentId.value = itemId
         viewModelScope.launch {
             uiState = uiState.copy(isLoading = true, itemType = itemType, itemId = itemId, errorMessage = null)
-            
+
             var foundItem: Any? = null
 
             try {
@@ -39,8 +64,8 @@ class DetailViewModel(
                         } else {
                             val listRes = repository.getResearchPapers()
                             if (listRes.isSuccess) {
-                                foundItem = listRes.getOrDefault(emptyList()).find { 
-                                    it.id == itemId || it.pubMedId == itemId || it.title.equals(itemId, true) || it.id.toString() == itemId 
+                                foundItem = listRes.getOrDefault(emptyList()).find {
+                                    it.id == itemId || it.pubMedId == itemId || it.title.equals(itemId, true) || it.id.toString() == itemId
                                 } ?: listRes.getOrDefault(emptyList()).firstOrNull()
                             }
                         }
@@ -52,8 +77,8 @@ class DetailViewModel(
                         } else {
                             val listRes = repository.getClinicalTrials()
                             if (listRes.isSuccess) {
-                                foundItem = listRes.getOrDefault(emptyList()).find { 
-                                    it.nctId == itemId || it.title.equals(itemId, true) 
+                                foundItem = listRes.getOrDefault(emptyList()).find {
+                                    it.nctId == itemId || it.title.equals(itemId, true)
                                 } ?: listRes.getOrDefault(emptyList()).firstOrNull()
                             }
                         }
@@ -61,16 +86,16 @@ class DetailViewModel(
                     "fdaApprovals" -> {
                         val listRes = repository.getFdaApprovals()
                         if (listRes.isSuccess) {
-                            foundItem = listRes.getOrDefault(emptyList()).find { 
-                                it.id == itemId || it.drugName.equals(itemId, true) 
+                            foundItem = listRes.getOrDefault(emptyList()).find {
+                                it.id == itemId || it.drugName.equals(itemId, true)
                             } ?: listRes.getOrDefault(emptyList()).firstOrNull()
                         }
                     }
                     "news" -> {
                         val listRes = repository.getNews()
                         if (listRes.isSuccess) {
-                            foundItem = listRes.getOrDefault(emptyList()).find { 
-                                it.id == itemId || it.title.equals(itemId, true) 
+                            foundItem = listRes.getOrDefault(emptyList()).find {
+                                it.id == itemId || it.title.equals(itemId, true)
                             } ?: listRes.getOrDefault(emptyList()).firstOrNull()
                         }
                     }
@@ -81,8 +106,8 @@ class DetailViewModel(
                         } else {
                             val listRes = repository.getBlog()
                             if (listRes.isSuccess) {
-                                foundItem = listRes.getOrDefault(emptyList()).find { 
-                                    it.slug == itemId || it.id == itemId || it.title.equals(itemId, true) 
+                                foundItem = listRes.getOrDefault(emptyList()).find {
+                                    it.slug == itemId || it.id == itemId || it.title.equals(itemId, true)
                                 } ?: listRes.getOrDefault(emptyList()).firstOrNull()
                             }
                         }
@@ -90,7 +115,6 @@ class DetailViewModel(
                 }
             } catch (_: Exception) {}
 
-            // Robust fallback so attributes are never N/A
             if (foundItem == null) {
                 foundItem = when (itemType) {
                     "research" -> ResearchPaper(
@@ -151,6 +175,32 @@ class DetailViewModel(
                 isLoading = false,
                 itemData = foundItem
             )
+        }
+    }
+
+    fun toggleFavorite() {
+        val item = uiState.itemData ?: return
+        val id = uiState.itemId
+        val type = uiState.itemType
+        val currentlyFav = isFavorite.value
+
+        val (title, subtitle) = when (item) {
+            is ResearchPaper -> Pair(item.title ?: "Article", item.journal ?: "")
+            is ClinicalTrial -> Pair(item.displayTitle, item.status ?: "")
+            is FdaApproval -> Pair(item.drugName ?: "Médicament", item.indication ?: "")
+            is NewsItem -> Pair(item.title ?: "Actualité", item.source ?: "")
+            is BlogItem -> Pair(item.title ?: "Article", item.displayDate ?: "")
+            else -> Pair("Élément", "")
+        }
+
+        viewModelScope.launch {
+            if (currentlyFav) {
+                favoriteRepository.removeFavoriteById(id)
+            } else {
+                favoriteRepository.addFavorite(
+                    FavoriteEntity(id = id, type = type, title = title, subtitle = subtitle)
+                )
+            }
         }
     }
 }

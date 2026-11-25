@@ -14,88 +14,97 @@ import com.example.myapplication.data.model.PharmaSearchResponse
 import com.example.myapplication.data.model.PpiRequest
 import com.example.myapplication.data.model.PpiResponse
 import com.example.myapplication.data.model.ResearchPaper
-import com.google.gson.JsonObject
-import retrofit2.http.Body
-import retrofit2.http.GET
-import retrofit2.http.POST
-import retrofit2.http.Path
-import retrofit2.http.Query
+import io.ktor.client.HttpClient
+import io.ktor.client.call.body
+import io.ktor.client.request.get
+import io.ktor.client.request.parameter
+import io.ktor.client.request.post
+import io.ktor.client.request.setBody
+import kotlinx.serialization.json.JsonObject
 
-interface CureCancerApiService {
+class CureCancerApiService(
+    private val client: HttpClient = KtorClient.httpClient
+) {
 
-    @GET("api/v1/research")
     suspend fun getResearch(
-        @Query("page") page: Int? = null,
-        @Query("limit") limit: Int? = null
-    ): ApiResponse<ResearchPaper>
+        page: Int? = null,
+        limit: Int? = null
+    ): ApiResponse<ResearchPaper> = client.get("api/v1/research") {
+        page?.let { parameter("page", it) }
+        limit?.let { parameter("limit", it) }
+    }.body()
 
-    @GET("api/v1/research/{idOrPubmedId}")
-    suspend fun getResearchDetail(
-        @Path("idOrPubmedId") idOrPubmedId: String
-    ): ResearchPaper
+    suspend fun getResearchDetail(idOrPubmedId: String): ResearchPaper =
+        client.get("api/v1/research/$idOrPubmedId").body()
 
-    @GET("api/v1/news")
     suspend fun getNews(
-        @Query("page") page: Int? = null,
-        @Query("limit") limit: Int? = null
-    ): ApiResponse<NewsItem>
+        page: Int? = null,
+        limit: Int? = null
+    ): ApiResponse<NewsItem> = client.get("api/v1/news") {
+        page?.let { parameter("page", it) }
+        limit?.let { parameter("limit", it) }
+    }.body()
 
-    @GET("api/v1/blog")
     suspend fun getBlog(
-        @Query("page") page: Int? = null,
-        @Query("limit") limit: Int? = null
-    ): ApiResponse<BlogItem>
+        page: Int? = null,
+        limit: Int? = null
+    ): ApiResponse<BlogItem> = client.get("api/v1/blog") {
+        page?.let { parameter("page", it) }
+        limit?.let { parameter("limit", it) }
+    }.body()
 
-    @GET("api/v1/blog/{slug}")
-    suspend fun getBlogDetail(
-        @Path("slug") slug: String
-    ): BlogItem
+    suspend fun getBlogDetail(slug: String): BlogItem =
+        client.get("api/v1/blog/$slug").body()
 
-    @GET("api/v1/fda-approvals")
     suspend fun getFdaApprovals(
-        @Query("page") page: Int? = null,
-        @Query("limit") limit: Int? = null
-    ): ApiResponse<FdaApproval>
+        page: Int? = null,
+        limit: Int? = null
+    ): ApiResponse<FdaApproval> = client.get("api/v1/fda-approvals") {
+        page?.let { parameter("page", it) }
+        limit?.let { parameter("limit", it) }
+    }.body()
 
-    @GET("api/v1/clinical-trials")
     suspend fun getClinicalTrials(
-        @Query("page") page: Int? = null,
-        @Query("limit") limit: Int? = null
-    ): ApiResponse<ClinicalTrial>
+        page: Int? = null,
+        limit: Int? = null
+    ): ApiResponse<ClinicalTrial> = client.get("api/v1/clinical-trials") {
+        page?.let { parameter("page", it) }
+        limit?.let { parameter("limit", it) }
+    }.body()
 
-    @GET("api/v1/clinical-trials/{nctId}")
-    suspend fun getClinicalTrialDetail(
-        @Path("nctId") nctId: String
-    ): ClinicalTrial
+    suspend fun getClinicalTrialDetail(nctId: String): ClinicalTrial =
+        client.get("api/v1/clinical-trials/$nctId").body()
 
-    @GET("api/v1/search")
     suspend fun search(
-        @Query("q") query: String,
-        @Query("types") types: String? = null
-    ): JsonObject
+        query: String,
+        types: String? = null
+    ): JsonObject = client.get("api/v1/search") {
+        parameter("q", query)
+        types?.let { parameter("types", it) }
+    }.body()
 
     // IBM MAMMAL Prediction Endpoints
-    @POST("api/v1/mammal/ppi")
-    suspend fun predictPpi(
-        @Body request: PpiRequest
-    ): PpiResponse
+    suspend fun predictPpi(request: PpiRequest): PpiResponse =
+        client.post("api/v1/mammal/ppi") {
+            setBody(request)
+        }.body()
 
-    @POST("api/v1/mammal/dti")
-    suspend fun predictDti(
-        @Body request: DtiRequest
-    ): DtiResponse
+    suspend fun predictDti(request: DtiRequest): DtiResponse =
+        client.post("api/v1/mammal/dti") {
+            setBody(request)
+        }.body()
 
-    @POST("api/v1/mammal/clintox")
-    suspend fun predictClinTox(
-        @Body request: ClinToxRequest
-    ): ClinToxResponse
+    suspend fun predictClinTox(request: ClinToxRequest): ClinToxResponse =
+        client.post("api/v1/mammal/clintox") {
+            setBody(request)
+        }.body()
 
     // Pharma Endpoints
-    @POST("api/v1/pharma/search")
-    suspend fun searchPharma(
-        @Body request: PharmaSearchRequest
-    ): PharmaSearchResponse
+    suspend fun searchPharma(request: PharmaSearchRequest): PharmaSearchResponse =
+        client.post("api/v1/pharma/search") {
+            setBody(request)
+        }.body()
 
-    @GET("api/v1/pharma/characteristics")
-    suspend fun getPharmaCharacteristics(): JsonObject
+    suspend fun getPharmaCharacteristics(): JsonObject =
+        client.get("api/v1/pharma/characteristics").body()
 }

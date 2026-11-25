@@ -16,6 +16,7 @@ import com.example.myapplication.ui.login.LoginScreen
 import com.example.myapplication.ui.mammal.MammalScreen
 import com.example.myapplication.ui.results.ResultsScreen
 import com.example.myapplication.ui.search.SearchScreen
+import com.example.myapplication.ui.favorites.FavoritesScreen
 import kotlinx.coroutines.launch
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
@@ -134,6 +135,16 @@ fun NavGraph() {
             composable("about") {
                 AboutScreen(
                     onNavigateBack = { navController.popBackStack() }
+                )
+            }
+
+            composable("favorites") {
+                FavoritesScreen(
+                    onNavigateBack = { navController.popBackStack() },
+                    onNavigateToDetail = { type, id ->
+                        val encodedId = URLEncoder.encode(id, StandardCharsets.UTF_8.toString())
+                        navController.navigate("detail/$type/$encodedId")
+                    }
                 )
             }
         }
